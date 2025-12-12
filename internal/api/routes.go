@@ -6,11 +6,22 @@ import (
 	"Proyectos_Go/internal/core/service"
 	"Proyectos_Go/internal/infrastructure/database"
 	"Proyectos_Go/internal/infrastructure/repository"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRoutes(router *gin.Engine) {
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "http://143.198.236.81"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	db := database.DB
 
 	userRepo := repository.NewUserRepository(db)
@@ -57,7 +68,7 @@ func SetupRoutes(router *gin.Engine) {
 			protected.POST("/tourism", tourismHandler.Create)
 			protected.PUT("/tourism/:id", tourismHandler.Update)
 			protected.DELETE("/tourism/:id", tourismHandler.Delete)
-			
+
 			protected.POST("/categories", categoryHandler.Create)
 		}
 	}
