@@ -15,7 +15,7 @@ import (
 func SetupRoutes(router *gin.Engine) {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173", "http://143.198.236.81"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -29,10 +29,12 @@ func SetupRoutes(router *gin.Engine) {
 	categoryRepo := repository.NewCategoryRepo(db)
 
 	authService := service.NewAuthService(userRepo)
+	userService := service.NewUserService(userRepo)
 	tourismService := service.NewTourismService(tourismRepo)
 	categoryService := service.NewCategoryService(categoryRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(userService)
 	tourismHandler := handlers.NewTourismHandler(tourismService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
@@ -54,22 +56,25 @@ func SetupRoutes(router *gin.Engine) {
 
 		protected.Use(middleware.AuthMiddleware())
 		{
-			protected.GET("/me", func(c *gin.Context) {
-				userID, _ := c.Get("userID")
-				role, _ := c.Get("role")
+			protected.GET("/me", userHandler.GetMe)
 
-				c.JSON(200, gin.H{
-					"message": "¡Acceso autorizado por Cookie!",
-					"user_id": userID,
-					"role":    role,
-				})
-			})
+			superAdmin := protected.Group("/admin")
+			superAdmin.Use(middleware.RequireRole("superadmin"))
+			{
+				superAdmin.GET("/users", userHandler.GetAll)
+				superAdmin.DELETE("/users/:id", userHandler.Delete)
+				superAdmin.PATCH("/users/:id/role", userHandler.ChangeRole)
+			}
 
-			protected.POST("/tourism", tourismHandler.Create)
-			protected.PUT("/tourism/:id", tourismHandler.Update)
-			protected.DELETE("/tourism/:id", tourismHandler.Delete)
+			contentManagers := protected.Group("/")
+			contentManagers.Use(middleware.RequireRole("superadmin", "admin"))
+			{
+				contentManagers.POST("/tourism", tourismHandler.Create)
+				contentManagers.PUT("/tourism/:id", tourismHandler.Update)
+				contentManagers.DELETE("/tourism/:id", tourismHandler.Delete)
 
-			protected.POST("/categories", categoryHandler.Create)
+				contentManagers.POST("/categories", categoryHandler.Create)
+			}
 		}
 	}
 }
